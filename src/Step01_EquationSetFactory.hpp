@@ -54,6 +54,8 @@
 #include "Step01_EquationSet_Helmholtz.hpp"
 // end modification
 
+#include "Step01_EquationSet_FreqDom.hpp"
+
 namespace user_app {
 
   PANZER_DECLARE_EQSET_TEMPLATE_BUILDER("Projection", user_app::EquationSet_Projection,
@@ -64,6 +66,9 @@ namespace user_app {
   PANZER_DECLARE_EQSET_TEMPLATE_BUILDER("Helmholtz", user_app::EquationSet_Helmholtz,
 					EquationSet_Helmholtz)
   // end modification
+
+  PANZER_DECLARE_EQSET_TEMPLATE_BUILDER("FreqDom", user_app::EquationSet_FreqDom,
+					EquationSet_FreqDom)
 
   class EquationSetFactory : public panzer::EquationSetFactory {
 
@@ -92,6 +97,9 @@ namespace user_app {
 	// question: what does this do? if it's required to be done when 
         //           the equations are being built anyway, why isn't this done by 
         //           the PANZER_DECLARE_EQSET_TEMPLATE_BUILDER?
+
+      PANZER_BUILD_EQSET_OBJECTS("FreqDom", user_app::EquationSet_FreqDom,
+				 EquationSet_FreqDom)
 
       if (!found) {
 	std::string msg = "Error - the \"Equation Set\" with \"Type\" = \"" + params->get<std::string>("Type") +
