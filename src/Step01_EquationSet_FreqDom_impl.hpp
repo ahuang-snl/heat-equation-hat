@@ -60,6 +60,38 @@
 #include "Panzer_Integrator_GradBasisDotVector.hpp"
 // end modification
 
+// begin HB mod
+// equation set factory for time domain equation set
+#include "Panzer_EquationSet_Factory.hpp"
+#include "Panzer_EquationSet_Factory_Defines.hpp"
+#include "Panzer_CellData.hpp"
+
+//#include "Step01_EquationSet_Helmholtz.hpp"
+// end HB mod
+
+// implementation outline
+// INPUT DATA: the time domain equation set
+//             fundamental frequencies
+//             truncation scheme: box, diamond, alpha (for the \ell^\alpha ball)
+//             options: transient assisted,
+// 0) this equation set should include headers for all FEM time domain equation sets
+// 1) call the appropriate time domain equation set, invoking it to create DOFs and fields
+//    this may essentially involve running one steady state calculation, saving the fields
+//    (note that this solution can be used for the linearized problem,
+//    since the steady state is the mode 0 response)
+// 2) create the appropriate frequency domain fields from this information,
+//    including the HB residual, HB DOF's, and HB Jacobian
+// 3) solve the resulting non-linear HB system of equations
+
+// what I need to learn how to do in order to pull this off:
+// 1) call an equation set from here, to set up all the relevant fields
+// 2) learn how to work with the fields created from that set-up run
+// 3) define the HB residual from the residuals defined above
+// 3) define the HB Jacobian
+// 4) set up the non-linear system and solve it
+// 5) revert to the time domain?
+
+
 // ***********************************************************************
 template <typename EvalT>
 user_app::EquationSet_FreqDom<EvalT>::
@@ -71,8 +103,9 @@ EquationSet_FreqDom(const Teuchos::RCP<Teuchos::ParameterList>& params,
   panzer::EquationSet_DefaultImpl<EvalT>(params,default_integration_order,cell_data,global_data,build_transient_support )
 {
   // ********************
-  // Validate and parse parameter list
+  // Validate the parameters for the chosen time domain equation set
   // ********************
+
   {    
     Teuchos::ParameterList valid_parameters;
     this->setDefaultValidParameters(valid_parameters);
@@ -83,6 +116,19 @@ EquationSet_FreqDom(const Teuchos::RCP<Teuchos::ParameterList>& params,
     valid_parameters.set("Basis Order",1,"Order of the basis");
     valid_parameters.set("Integration Order",-1,"Order of the integration rule");
 
+  // begin HB mod
+  // validate the FreqDom Options  
+  // QUESTION: figure out why this is printed 3 times. 
+    Teuchos::ParameterList& freqdom_opt = valid_parameters.sublist("FreqDom Options");  
+    Teuchos::setStringToIntegralParameter<int>(
+      "Time domain equation set",
+      "Helmholtz", // default
+      "Choose the time domain equation set to model in the frequency domain",
+      Teuchos::tuple<std::string>("Helmholtz", "Projection"),
+      &freqdom_opt
+      );
+    // end HB mod
+
     params->validateParametersAndSetDefaults(valid_parameters);
   }
 
@@ -92,9 +138,17 @@ EquationSet_FreqDom(const Teuchos::RCP<Teuchos::ParameterList>& params,
   int basis_order        = params->get<int>("Basis Order");
   int integration_order  = params->get<int>("Integration Order");
 
+  // begin HB mod
+  // grab the time domain equation set name
+  std::string& time_domain_eqnset   = params->sublist("FreqDom Options").get<std::string>("Time domain equation set");
+  std::cout << "The chosen time domain equation set is: " << time_domain_eqnset << std::endl;
+  // end HB mod
+
+
   // ********************
   // Setup DOFs and closure models
   // ********************
+
   {
     dof_name_ = prefix+"U";
 
@@ -118,6 +172,9 @@ buildAndRegisterEquationSetEvaluators(PHX::FieldManager<panzer::Traits>& fm,
 				      const panzer::FieldLibrary& fl,
 				      const Teuchos::ParameterList& user_data) const
 {
+
+  std::cout << "The EquationSet_FreqDom_impl function buildAndRegisterEquationSetEvaluators was called." << std::endl;
+
   using Teuchos::ParameterList;
   using Teuchos::RCP;
   using Teuchos::rcp;

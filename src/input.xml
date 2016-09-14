@@ -22,7 +22,11 @@
           <ParameterList>
 <!--              <Parameter name="Type"              type="string" value="Projection"/> -->
 <!--              <Parameter name="Type"              type="string" value="Helmholtz"/> --> 
-              <Parameter name="Type"              type="string" value="FreqDom"/> 
+              <Parameter name="Type"    type="string" value="FreqDom"/>
+              <ParameterList name="FreqDom Options">
+                  <Parameter name="Time domain equation set"    type="string" value="Helmholtz"/>
+<!---                  <Parameter name="Time domain equation set"    type="string" value="Helmholtz"/> -->
+              </ParameterList>
               <Parameter name="Basis Type"        type="string" value="HGrad"/> 
               <Parameter name="Basis Order"       type="int"    value="1"/> 
               <Parameter name="Integration Order" type="int"    value="2"/> 

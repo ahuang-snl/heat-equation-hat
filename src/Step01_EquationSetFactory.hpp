@@ -54,7 +54,10 @@
 #include "Step01_EquationSet_Helmholtz.hpp"
 // end modification
 
+// begin HB mod
 #include "Step01_EquationSet_FreqDom.hpp"
+// end HB mod
+
 
 namespace user_app {
 
@@ -62,13 +65,18 @@ namespace user_app {
 					EquationSet_Projection)
 
   // begin modification
-  // macro which builds the Helmholtz equation set
+  // A macro that defines a class to make construction of the equation sets easier
+  //   - The equation set is constructed over a list of automatic differention types
   PANZER_DECLARE_EQSET_TEMPLATE_BUILDER("Helmholtz", user_app::EquationSet_Helmholtz,
 					EquationSet_Helmholtz)
   // end modification
 
+  // begin HB mod
+  // PANZER_DECLARE_EQSET_TEMPLATE_BUILDER("Helmholtz", user_app::EquationSet_Helmholtz,
+  //					EquationSet_FreqDom)
   PANZER_DECLARE_EQSET_TEMPLATE_BUILDER("FreqDom", user_app::EquationSet_FreqDom,
-					EquationSet_FreqDom)
+  					EquationSet_FreqDom)
+  // end HB mod
 
   class EquationSetFactory : public panzer::EquationSetFactory {
 
@@ -85,21 +93,55 @@ namespace user_app {
 	Teuchos::rcp(new panzer::EquationSet_TemplateManager<panzer::Traits>);
       
       bool found = false;
-      
+
       PANZER_BUILD_EQSET_OBJECTS("Projection", user_app::EquationSet_Projection,
 				 EquationSet_Projection)
       
       // begin modification
       // macro which builds the objects in the Helmholtz equation set
+      // macro checks if(ies.name=="Helmholtz") then an EquationSet_Helmholtz object is constructed
       PANZER_BUILD_EQSET_OBJECTS("Helmholtz", user_app::EquationSet_Helmholtz,
 				 EquationSet_Helmholtz)
-	// end modification
-	// question: what does this do? if it's required to be done when 
-        //           the equations are being built anyway, why isn't this done by 
-        //           the PANZER_DECLARE_EQSET_TEMPLATE_BUILDER?
+      // end modification
+      // question: what does this do? if it's required to be done when 
+      //           the equations are being built anyway, why isn't this done by 
+      //           the PANZER_DECLARE_EQSET_TEMPLATE_BUILDER?
 
       PANZER_BUILD_EQSET_OBJECTS("FreqDom", user_app::EquationSet_FreqDom,
-				 EquationSet_FreqDom)
+      				 EquationSet_FreqDom)
+
+/*
+      // begin HB mod
+      // Actually, don't build equation set object here, since exactly which time domain eqn set 
+      // to analyze in the frequency domain is queried in the FreqDom Equation Set.
+	if(params->get<std::string>("Type") == "FreqDom"){
+	
+          // grab the name of the time domain equation set	
+          std::string time_domain_eqnset   = params->get<std::string>("Time domain equation set");
+
+          // build the appropriate time domain equation set objects
+	    if(time_domain_eqnset == "Helmholtz"){
+  
+                PANZER_BUILD_EQSET_OBJECTS("FreqDom", user_app::EquationSet_Helmholtz,
+      				 EquationSet_FreqDom)
+
+            }
+            else if(time_domain_eqnset == "Projection"){
+
+                PANZER_BUILD_EQSET_OBJECTS("FreqDom", user_app::EquationSet_Projection,
+      				 EquationSet_FreqDom)
+
+            }
+            else if (!found) {
+      	     std::string msg = "Error - FreqDom chosen, but the \"Time domain equation set\" with \"Type\" = \"" + params->get<std::string>("Type") +
+	       "\" is not a valid equation set identifier. Please supply the correct factory.\n";
+	     TEUCHOS_TEST_FOR_EXCEPTION(true, std::logic_error, msg);
+           }
+           found = true;
+       }
+      // end HB mod
+*/
+
 
       if (!found) {
 	std::string msg = "Error - the \"Equation Set\" with \"Type\" = \"" + params->get<std::string>("Type") +

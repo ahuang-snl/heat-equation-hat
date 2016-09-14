@@ -83,6 +83,19 @@ EquationSet_Helmholtz(const Teuchos::RCP<Teuchos::ParameterList>& params,
     valid_parameters.set("Basis Order",1,"Order of the basis");
     valid_parameters.set("Integration Order",-1,"Order of the integration rule");
 
+    // begin HB mod (must be added to existing time domain equation sets)
+    // essentially to ignore the "FreqDom" sublist for the time domain construction
+    // the FreqDom parameter sublist is required when running the FreqDom equation set
+    // allows for validation of parameters even with a "FreqDom" sublist present
+    if (params->isSublist("FreqDom Options"))
+    {
+        std::cout << "Found a 'FreqDom Options' parameter sublist!" << std::endl;
+	std::cout << "Validating the parameterlist anyway." << std::endl;
+	valid_parameters.sublist("FreqDom Options"); // = params->sublist("FreqDom Options");
+        valid_parameters.sublist("FreqDom Options").disableRecursiveValidation();
+    }
+    // end HB mod
+
     params->validateParametersAndSetDefaults(valid_parameters);
   }
 
@@ -118,6 +131,9 @@ buildAndRegisterEquationSetEvaluators(PHX::FieldManager<panzer::Traits>& fm,
 				      const panzer::FieldLibrary& fl,
 				      const Teuchos::ParameterList& user_data) const
 {
+
+  std::cout << "The EquationSet_Helmholtz_impl function buildAndRegisterEquationSetEvaluators was called." << std::endl;
+
   using Teuchos::ParameterList;
   using Teuchos::RCP;
   using Teuchos::rcp;
