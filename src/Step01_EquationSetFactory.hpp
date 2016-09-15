@@ -64,16 +64,18 @@ namespace user_app {
   PANZER_DECLARE_EQSET_TEMPLATE_BUILDER("Projection", user_app::EquationSet_Projection,
 					EquationSet_Projection)
 
-  // begin modification
+  // begin modificatin
   // A macro that defines a class to make construction of the equation sets easier
   //   - The equation set is constructed over a list of automatic differention types
   PANZER_DECLARE_EQSET_TEMPLATE_BUILDER("Helmholtz", user_app::EquationSet_Helmholtz,
 					EquationSet_Helmholtz)
   // end modification
-
+  
   // begin HB mod
-  // PANZER_DECLARE_EQSET_TEMPLATE_BUILDER("Helmholtz", user_app::EquationSet_Helmholtz,
-  //					EquationSet_FreqDom)
+  // this provides a placeholder template, since the user_app::EquationSet_FreqDom
+  // (defined in Step01_EquationSet_FreqDom_impl.hpp) can be used to grab the info
+  // from the appropriate time domain equation set. The problem is that
+  // we cannot grab the name of the time domain equation set at this point.
   PANZER_DECLARE_EQSET_TEMPLATE_BUILDER("FreqDom", user_app::EquationSet_FreqDom,
   					EquationSet_FreqDom)
   // end HB mod
@@ -107,40 +109,40 @@ namespace user_app {
       //           the equations are being built anyway, why isn't this done by 
       //           the PANZER_DECLARE_EQSET_TEMPLATE_BUILDER?
 
-      PANZER_BUILD_EQSET_OBJECTS("FreqDom", user_app::EquationSet_FreqDom,
-      				 EquationSet_FreqDom)
 
-/*
-      // begin HB mod
-      // Actually, don't build equation set object here, since exactly which time domain eqn set 
-      // to analyze in the frequency domain is queried in the FreqDom Equation Set.
-	if(params->get<std::string>("Type") == "FreqDom"){
-	
-          // grab the name of the time domain equation set	
-          std::string time_domain_eqnset   = params->get<std::string>("Time domain equation set");
+     // begin HB mod
+     // check that we are using the "FreqDom" equation set
+     // check for presence of a "FreqDom Options" sublist (parallel to the "FreqDom" equation set specification
+     // error if "FreqDom" sublist is missing
+     // grab the time domain equation set name in time_domain_eqnset 
+     if(params->get<std::string>("Type") == "FreqDom"){
 
-          // build the appropriate time domain equation set objects
-	    if(time_domain_eqnset == "Helmholtz"){
-  
-                PANZER_BUILD_EQSET_OBJECTS("FreqDom", user_app::EquationSet_Helmholtz,
-      				 EquationSet_FreqDom)
+        std::cout << "A frequency domain analysis is specified." << std::endl;
+ 
+        if(params->isSublist("FreqDom Options")){
 
-            }
-            else if(time_domain_eqnset == "Projection"){
+          // grab the time domain equation set here
+	  std::cout << "Found a FreqDom Options sublist!" << std::endl;
+	  std::string& time_domain_eqnset   = params->sublist("FreqDom Options").get<std::string>("Time domain equation set");
+	  std::cout << "The time domain equation set you chose is: " + time_domain_eqnset << std::endl;
 
-                PANZER_BUILD_EQSET_OBJECTS("FreqDom", user_app::EquationSet_Projection,
-      				 EquationSet_FreqDom)
+	PANZER_BUILD_EQSET_OBJECTS("FreqDom", user_app::EquationSet_FreqDom,EquationSet_FreqDom) 
+        // alternatively, use the expanded macro, doesn't check key
+	// EquationSet_FreqDom_TemplateBuilder builder(params, default_integration_order, cell_data, global_data, build_transient_support);
+        // eq_set->buildObjects(builder);
 
-            }
-            else if (!found) {
-      	     std::string msg = "Error - FreqDom chosen, but the \"Time domain equation set\" with \"Type\" = \"" + params->get<std::string>("Type") +
-	       "\" is not a valid equation set identifier. Please supply the correct factory.\n";
-	     TEUCHOS_TEST_FOR_EXCEPTION(true, std::logic_error, msg);
-           }
-           found = true;
-       }
-      // end HB mod
-*/
+        } 
+        else if(!params->isSublist("FreqDom Options")) {
+ 
+	   // error out if the "FreqDom Options" are missing 
+      	  std::string msg = "Error - Equation set \"FreqDom\" chosen, but missing a \"FreqDom Options\" parameter sublist!.\n";
+	  TEUCHOS_TEST_FOR_EXCEPTION(true, std::logic_error, msg);            
+
+        } 
+
+	found = true;
+     }
+     // end HB mod
 
 
       if (!found) {

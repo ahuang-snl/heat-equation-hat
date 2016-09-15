@@ -89,9 +89,9 @@ EquationSet_Helmholtz(const Teuchos::RCP<Teuchos::ParameterList>& params,
     // allows for validation of parameters even with a "FreqDom" sublist present
     if (params->isSublist("FreqDom Options"))
     {
-        std::cout << "Found a 'FreqDom Options' parameter sublist!" << std::endl;
-	std::cout << "Validating the parameterlist anyway." << std::endl;
-	valid_parameters.sublist("FreqDom Options"); // = params->sublist("FreqDom Options");
+        std::cout << "Found a 'FreqDom Options' parameter sublist at " << __TIME__ << std::endl;
+        std::cout << "Validating the parameterlist anyway!" << std::endl;
+        valid_parameters.sublist("FreqDom Options"); // = params->sublist("FreqDom Options");
         valid_parameters.sublist("FreqDom Options").disableRecursiveValidation();
     }
     // end HB mod

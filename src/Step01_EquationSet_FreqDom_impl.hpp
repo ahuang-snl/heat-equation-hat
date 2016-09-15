@@ -122,7 +122,7 @@ EquationSet_FreqDom(const Teuchos::RCP<Teuchos::ParameterList>& params,
     Teuchos::ParameterList& freqdom_opt = valid_parameters.sublist("FreqDom Options");  
     Teuchos::setStringToIntegralParameter<int>(
       "Time domain equation set",
-      "Helmholtz", // default
+      "Projection", // default gives an invalid type
       "Choose the time domain equation set to model in the frequency domain",
       Teuchos::tuple<std::string>("Helmholtz", "Projection"),
       &freqdom_opt
@@ -141,9 +141,9 @@ EquationSet_FreqDom(const Teuchos::RCP<Teuchos::ParameterList>& params,
   // begin HB mod
   // grab the time domain equation set name
   std::string& time_domain_eqnset   = params->sublist("FreqDom Options").get<std::string>("Time domain equation set");
-  std::cout << "The chosen time domain equation set is: " << time_domain_eqnset << std::endl;
+  std::cout << "The time domain equation set we are setting up is: " << time_domain_eqnset + "." << std::endl;
+  std::cout << "Do something to create multiple " + time_domain_eqnset + " equation set fields here." << std::endl;
   // end HB mod
-
 
   // ********************
   // Setup DOFs and closure models
