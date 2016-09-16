@@ -78,6 +78,8 @@ namespace user_app {
   // we cannot grab the name of the time domain equation set at this point.
   PANZER_DECLARE_EQSET_TEMPLATE_BUILDER("FreqDom", user_app::EquationSet_FreqDom,
   					EquationSet_FreqDom)
+  // note that this Helmholtz set will only be created when "FreqDom" is chosen,
+  // so this introduces no new overhead (when a time domain transient simulation is run)
   // end HB mod
 
   class EquationSetFactory : public panzer::EquationSetFactory {
@@ -126,10 +128,12 @@ namespace user_app {
 	  std::string& time_domain_eqnset   = params->sublist("FreqDom Options").get<std::string>("Time domain equation set");
 	  std::cout << "The time domain equation set you chose is: " + time_domain_eqnset << std::endl;
 
-	PANZER_BUILD_EQSET_OBJECTS("FreqDom", user_app::EquationSet_FreqDom,EquationSet_FreqDom) 
+	PANZER_BUILD_EQSET_OBJECTS("FreqDom", user_app::EquationSet_FreqDom, EquationSet_FreqDom)
         // alternatively, use the expanded macro, doesn't check key
 	// EquationSet_FreqDom_TemplateBuilder builder(params, default_integration_order, cell_data, global_data, build_transient_support);
         // eq_set->buildObjects(builder);
+
+	// assuming the time domain equation set is Helmholtz; create these alongside the FreqDom so we create its objects
 
         } 
         else if(!params->isSublist("FreqDom Options")) {

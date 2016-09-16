@@ -65,8 +65,6 @@
 #include "Panzer_EquationSet_Factory.hpp"
 #include "Panzer_EquationSet_Factory_Defines.hpp"
 #include "Panzer_CellData.hpp"
-
-//#include "Step01_EquationSet_Helmholtz.hpp"
 // end HB mod
 
 // implementation outline
@@ -93,6 +91,15 @@
 
 
 // ***********************************************************************
+
+// begin HB mod
+// instantiate the appropriate equation set object
+PANZER_DECLARE_EQSET_TEMPLATE_BUILDER("FreqDom", user_app::EquationSet_Helmholtz,
+				      EquationSet_Helmholtz)
+// we can do this completely within the EquationSetFactory, instead
+// end HB mod
+
+
 template <typename EvalT>
 user_app::EquationSet_FreqDom<EvalT>::
 EquationSet_FreqDom(const Teuchos::RCP<Teuchos::ParameterList>& params,
@@ -143,6 +150,13 @@ EquationSet_FreqDom(const Teuchos::RCP<Teuchos::ParameterList>& params,
   std::string& time_domain_eqnset   = params->sublist("FreqDom Options").get<std::string>("Time domain equation set");
   std::cout << "The time domain equation set we are setting up is: " << time_domain_eqnset + "." << std::endl;
   std::cout << "Do something to create multiple " + time_domain_eqnset + " equation set fields here." << std::endl;
+
+  Teuchos::RCP<panzer::EquationSet_TemplateManager<panzer::Traits> > eq_set=
+    Teuchos::rcp(new panzer::EquationSet_TemplateManager<panzer::Traits>);
+  bool found = false;
+
+  // for now, we asume the time domain eqn set is Helmholtz
+  PANZER_BUILD_EQSET_OBJECTS("FreqDom", user_app::EquationSet_Helmholtz, EquationSet_Helmholtz)
   // end HB mod
 
   // ********************
@@ -172,91 +186,68 @@ buildAndRegisterEquationSetEvaluators(PHX::FieldManager<panzer::Traits>& fm,
 				      const panzer::FieldLibrary& fl,
 				      const Teuchos::ParameterList& user_data) const
 {
+  // build the time domain equation set objects
+  // grab the required inputs
+  Teuchos::RCP<Teuchos::ParameterList> input_params = Teuchos::rcp(new Teuchos::ParameterList("User_App Parameters"));
+  Teuchos::updateParametersFromXmlFile("input.xml", input_params.ptr());
+  Teuchos::RCP<Teuchos::ParameterList> physics_blocks_pl   = Teuchos::rcp(new Teuchos::ParameterList(input_params->sublist("Physics Blocks")));
+  Teuchos::RCP<Teuchos::ParameterList> domain_pl   = Teuchos::rcp(new Teuchos::ParameterList(physics_blocks_pl->sublist("domain")));
+  Teuchos::RCP<Teuchos::ParameterList> params  = Teuchos::rcp(new Teuchos::ParameterList(domain_pl->sublist("child0")));
+  Teuchos::RCP<Teuchos::ParameterList> freqdom_pl   = Teuchos::rcp(new Teuchos::ParameterList(params->sublist("FreqDom Options")));
 
+  std::cout << "The EquationSet_FreqDom::buildAndRegisterEquationSetEvaluators() function was called!\n" 
+            << "The time domain equation specified is: " << freqdom_pl->get<std::string>("Time domain equation set")
+            << ". We will attempt to build its fields now." << std::endl;
   std::cout << "The EquationSet_FreqDom_impl function buildAndRegisterEquationSetEvaluators was called." << std::endl;
 
   using Teuchos::ParameterList;
   using Teuchos::RCP;
   using Teuchos::rcp;
 
+
+  // TODO: build and register the evaluators from the time domain equation set here
+  // for now, assuming the Helmholtz equation set
+  //user_app::EquationSet_Helmholtz<panzer::EvalT>::buildAndRegisterEquationSetEvaluators(fm, fl, user_data);
+
+
   // define some special strings to use
-  const std::string residual_projection_term     = "RESIDUAL_"+dof_name_+"_PROJECTION";
-  const std::string residual_projection_src_term = "RESIDUAL_"+dof_name_+"_PROJECTION_SOURCE";
-  
-  const std::string projection_src_name = dof_name_+"_SOURCE";
-    // this must be satisfied by the closure model
-
-  // begin modification
-  const std::string residual_laplacian_term      = "RESIDUAL_"+dof_name_+"_LAPLACIAN";
-  // end modification
-
+  const std::string residual_timesfive_term     = "RESIDUAL_"+dof_name_+"_TIMESFIVE";
+  // this must be satisfied by the closure model
 
   // ********************
-  // Helmholtz Equation
+  // Times five operator
   // ********************
 
   RCP<panzer::IntegrationRule> ir  = this->getIntRuleForDOF(dof_name_); 
   RCP<panzer::BasisIRLayout> basis = this->getBasisIRLayoutForDOF(dof_name_); 
 
-  // Projection operator (U,phi)
   {
     ParameterList p;
-    p.set("Residual Name", residual_projection_term);
+    p.set("Residual Name", residual_timesfive_term);
     p.set("Value Name",    dof_name_);
     p.set("Basis",         basis);
     p.set("IR",            ir);
-    p.set("Multiplier",    1.0);
+    p.set("Multiplier",    5.0);
 
-    RCP<PHX::Evaluator<panzer::Traits> > op = 
+    RCP<PHX::Evaluator<panzer::Traits> > op =
       rcp(new panzer::Integrator_BasisTimesScalar<EvalT,panzer::Traits>(p));
-    
+
     this->template registerEvaluator<EvalT>(fm, op);
   }
-
-  // Source operator -(u_source,phi)
-  {
-    ParameterList p;
-    p.set("Residual Name", residual_projection_src_term);
-    p.set("Value Name",    projection_src_name);
-    p.set("Basis",         basis);
-    p.set("IR",            ir);
-    p.set("Multiplier",    -1.0);
-
-    RCP<PHX::Evaluator<panzer::Traits> > op = 
-      rcp(new panzer::Integrator_BasisTimesScalar<EvalT,panzer::Traits>(p));
-    
-    this->template registerEvaluator<EvalT>(fm, op);
-  }
-
-  // begin modification
-  // Laplacian operator (grad u , grad basis)
-  {
-    ParameterList p;
-    p.set("Residual Name", residual_laplacian_term);
-    p.set("Flux Name", "GRAD_"+dof_name_);
-    p.set("Basis", basis);
-    p.set("IR", ir);
-    p.set("Multiplier", 1.0);
-
-    RCP< PHX::Evaluator<panzer::Traits> > op =
-      rcp(new panzer::Integrator_GradBasisDotVector<EvalT,panzer::Traits>(p));
-    fm.template registerEvaluator<EvalT>(op);
-  }
-  // end modification
-  // note that we do not have to explicitly evaluate a "GRAD_"+dof_name_ field
 
   // Use a sum operator to form the overall residual for the equation
   // - this way we avoid loading each operator separately into the
   // global residual and Jacobian
+
   {
     std::vector<std::string> residual_operator_names;
 
-    residual_operator_names.push_back(residual_projection_term);
-    residual_operator_names.push_back(residual_projection_src_term);
+    residual_operator_names.push_back(residual_timesfive_term);
 
-    // begin modification
-    residual_operator_names.push_back(residual_laplacian_term);
-    // end modification
+    // begin HB mod
+    // trying to add a field which has an evaluator in a different equation set
+    residual_operator_names.push_back("RESIDUAL_"+dof_name_+"_PROJECTION");
+    // end HB mod
 
     // build a sum evaluator
     this->buildAndRegisterResidualSummationEvalautor(fm,dof_name_,residual_operator_names);
