@@ -26,6 +26,7 @@
               <ParameterList name="FreqDom Options">
                   <Parameter name="Time domain equation set"    type="string" value="Helmholtz"/>
 <!---                  <Parameter name="Time domain equation set"    type="string" value="Helmholtz"/> -->
+                  <Parameter name="Truncation order"            type="int"    value="3"/>
               </ParameterList>
               <Parameter name="Basis Type"        type="string" value="HGrad"/> 
               <Parameter name="Basis Order"       type="int"    value="1"/> 

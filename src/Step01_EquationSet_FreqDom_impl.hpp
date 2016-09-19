@@ -134,6 +134,7 @@ EquationSet_FreqDom(const Teuchos::RCP<Teuchos::ParameterList>& params,
       Teuchos::tuple<std::string>("Helmholtz", "Projection"),
       &freqdom_opt
       );
+    freqdom_opt.set("Truncation order",3,"Truncation order of the harmonic balance method.");
     // end HB mod
 
     params->validateParametersAndSetDefaults(valid_parameters);
@@ -146,8 +147,9 @@ EquationSet_FreqDom(const Teuchos::RCP<Teuchos::ParameterList>& params,
   int integration_order  = params->get<int>("Integration Order");
 
   // begin HB mod
+
   // grab the time domain equation set name
-  std::string& time_domain_eqnset   = params->sublist("FreqDom Options").get<std::string>("Time domain equation set");
+  std::string& time_domain_eqnset = params->sublist("FreqDom Options").get<std::string>("Time domain equation set");
   std::cout << "The time domain equation set we are setting up is: " << time_domain_eqnset + "." << std::endl;
   std::cout << "Do something to create multiple " + time_domain_eqnset + " equation set fields here." << std::endl;
 
@@ -155,8 +157,13 @@ EquationSet_FreqDom(const Teuchos::RCP<Teuchos::ParameterList>& params,
     Teuchos::rcp(new panzer::EquationSet_TemplateManager<panzer::Traits>);
   bool found = false;
 
+  // grab the frequency domain analysis parameters
+  int truncation_order  = params->sublist("FreqDom Options").get<int>("Truncation order");
+
   // for now, we asume the time domain eqn set is Helmholtz
   PANZER_BUILD_EQSET_OBJECTS("FreqDom", user_app::EquationSet_Helmholtz, EquationSet_Helmholtz)
+  std::cout << "Called PANZER_BUILD_EQSET_OBJECTS(\"FreqDom\", user_app::EquationSet_Helmholtz, EquationSet_Helmholtz)" << std::endl;
+  std::cout << "We will print some info about what's created, here." << std::endl;
   // end HB mod
 
   // ********************
@@ -171,6 +178,22 @@ EquationSet_FreqDom(const Teuchos::RCP<Teuchos::ParameterList>& params,
     this->addDOFGrad(dof_name_);
     // end modication
     // question: what other kinds of fields can be automatically created?
+
+    // begin HB mod
+    // we treat the default DOF's (named as per the time domain equation set) as the 0th mode
+    // Need to add dof's for the higher order frequencies
+    std::string harmonic;
+
+    // for now, the total number of harmonics M is simply equal to the truncation order
+    int M = truncation_order;
+
+    for(int freq = 0 ; freq < M; freq++){    
+        harmonic = dof_name_ + "_freq" + std::to_string(freq);
+        std::cout << "Adding the " + std::to_string(freq) << "st/rd/th harmonic of the DOF." << std::endl;
+	this->addDOF(harmonic, basis_type, basis_order, integration_order);
+        this->addDOFGrad(harmonic);
+    }
+    // end HB mod
 
   }
 
@@ -207,7 +230,7 @@ buildAndRegisterEquationSetEvaluators(PHX::FieldManager<panzer::Traits>& fm,
 
   // TODO: build and register the evaluators from the time domain equation set here
   // for now, assuming the Helmholtz equation set
-  //user_app::EquationSet_Helmholtz<panzer::EvalT>::buildAndRegisterEquationSetEvaluators(fm, fl, user_data);
+  user_app::EquationSet_FreqDom<EvalT>::buildAndRegisterEquationSetEvaluators_Helmholtz(fm, fl, user_data);
 
 
   // define some special strings to use
@@ -227,7 +250,7 @@ buildAndRegisterEquationSetEvaluators(PHX::FieldManager<panzer::Traits>& fm,
     p.set("Value Name",    dof_name_);
     p.set("Basis",         basis);
     p.set("IR",            ir);
-    p.set("Multiplier",    5.0);
+    p.set("Multiplier",    0.0);
 
     RCP<PHX::Evaluator<panzer::Traits> > op =
       rcp(new panzer::Integrator_BasisTimesScalar<EvalT,panzer::Traits>(p));
@@ -242,11 +265,21 @@ buildAndRegisterEquationSetEvaluators(PHX::FieldManager<panzer::Traits>& fm,
   {
     std::vector<std::string> residual_operator_names;
 
+    // add a bogus evaluated field (which is actually equal to 0)
+    // this is the only field evaluated in this equation set
     residual_operator_names.push_back(residual_timesfive_term);
 
     // begin HB mod
     // trying to add a field which has an evaluator in a different equation set
-    residual_operator_names.push_back("RESIDUAL_"+dof_name_+"_PROJECTION");
+    // some strings defined from the Helmholtz equation set (residual names)
+    const std::string residual_projection_term     = "RESIDUAL_"+dof_name_+"_PROJECTION";
+    const std::string residual_projection_src_term = "RESIDUAL_"+dof_name_+"_PROJECTION_SOURCE";
+    const std::string projection_src_name = dof_name_+"_SOURCE";
+    const std::string residual_laplacian_term      = "RESIDUAL_"+dof_name_+"_LAPLACIAN";
+    // trying to add those evaluated fields into this residual
+    residual_operator_names.push_back(residual_projection_term);
+    residual_operator_names.push_back(residual_projection_src_term);
+    residual_operator_names.push_back(residual_laplacian_term);
     // end HB mod
 
     // build a sum evaluator
@@ -256,5 +289,122 @@ buildAndRegisterEquationSetEvaluators(PHX::FieldManager<panzer::Traits>& fm,
 }
 
 // ***********************************************************************
+
+
+
+
+// *****************************************************************************
+// begin HB mod
+// for now, we simply copy and paste the evaluators from Step01_EquationSet_Helmholtz_impl.hpp
+// in the future, we should call the buildAndRegisterEquationSetEvaluators function
+// from the time domain equation set, instead of hacking it into EquationSet_FreqDom
+
+// the goal is to minimally modify the residual evaluator from the time domain equation set
+// note that the residual pushed back by the time domain equation set is NOT the complete
+// 0th order harmonic residual
+
+template <typename EvalT>
+void user_app::EquationSet_FreqDom<EvalT>::
+buildAndRegisterEquationSetEvaluators_Helmholtz(PHX::FieldManager<panzer::Traits>& fm,
+				      const panzer::FieldLibrary& fl,
+				      const Teuchos::ParameterList& user_data) const
+{
+
+  std::cout << "The EquationSet_FreqDom_impl function buildAndRegisterEquationSetEvaluators_Helmholtz was called." << std::endl;
+
+  using Teuchos::ParameterList;
+  using Teuchos::RCP;
+  using Teuchos::rcp;
+
+  // define some special strings to use
+  const std::string residual_projection_term     = "RESIDUAL_"+dof_name_+"_PROJECTION";
+  const std::string residual_projection_src_term = "RESIDUAL_"+dof_name_+"_PROJECTION_SOURCE";
+  
+  const std::string projection_src_name = dof_name_+"_SOURCE";
+    // this must be satisfied by the closure model
+
+  // begin modification
+  const std::string residual_laplacian_term      = "RESIDUAL_"+dof_name_+"_LAPLACIAN";
+  // end modification
+
+
+  // ********************
+  // Helmholtz Equation
+  // ********************
+
+  RCP<panzer::IntegrationRule> ir  = this->getIntRuleForDOF(dof_name_); 
+  RCP<panzer::BasisIRLayout> basis = this->getBasisIRLayoutForDOF(dof_name_); 
+
+  // Projection operator (U,phi)
+  {
+    ParameterList p;
+    p.set("Residual Name", residual_projection_term);
+    p.set("Value Name",    dof_name_);
+    p.set("Basis",         basis);
+    p.set("IR",            ir);
+    p.set("Multiplier",    1.0);
+
+    RCP<PHX::Evaluator<panzer::Traits> > op = 
+      rcp(new panzer::Integrator_BasisTimesScalar<EvalT,panzer::Traits>(p));
+    
+    this->template registerEvaluator<EvalT>(fm, op);
+  }
+
+  // Source operator -(u_source,phi)
+  {
+    ParameterList p;
+    p.set("Residual Name", residual_projection_src_term);
+    p.set("Value Name",    projection_src_name);
+    p.set("Basis",         basis);
+    p.set("IR",            ir);
+    p.set("Multiplier",    -1.0);
+
+    RCP<PHX::Evaluator<panzer::Traits> > op = 
+      rcp(new panzer::Integrator_BasisTimesScalar<EvalT,panzer::Traits>(p));
+    
+    this->template registerEvaluator<EvalT>(fm, op);
+  }
+
+  // begin modification
+  // Laplacian operator (grad u , grad basis)
+  {
+    ParameterList p;
+    p.set("Residual Name", residual_laplacian_term);
+    p.set("Flux Name", "GRAD_"+dof_name_);
+    p.set("Basis", basis);
+    p.set("IR", ir);
+    p.set("Multiplier", 1.0);
+
+    RCP< PHX::Evaluator<panzer::Traits> > op =
+      rcp(new panzer::Integrator_GradBasisDotVector<EvalT,panzer::Traits>(p));
+    fm.template registerEvaluator<EvalT>(op);
+  }
+  // end modification
+  // note that we do not have to explicitly evaluate a "GRAD_"+dof_name_ field
+
+  // Use a sum operator to form the overall residual for the equation
+  // - this way we avoid loading each operator separately into the
+  // global residual and Jacobian
+
+  // don't push back the residual here; instead, push it back in the FreqDom's buildAndRegisterEvalautors()
+  /*
+  {
+    std::vector<std::string> residual_operator_names;
+
+    residual_operator_names.push_back(residual_projection_term);
+    residual_operator_names.push_back(residual_projection_src_term);
+
+    // begin modification
+    residual_operator_names.push_back(residual_laplacian_term);
+    // end modification
+
+    // build a sum evaluator
+    this->buildAndRegisterResidualSummationEvalautor(fm,dof_name_,residual_operator_names);
+  }
+  */
+}
+
+// end HB mod
+// *********************************************************************************
 
 #endif

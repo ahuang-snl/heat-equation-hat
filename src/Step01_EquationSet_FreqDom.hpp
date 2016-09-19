@@ -68,6 +68,14 @@ public:
                                              const panzer::FieldLibrary& field_library,
                                              const Teuchos::ParameterList& user_data) const;
 
+
+  // begin HB mod
+  // add evaluators from the Helmholtz equation set
+  void buildAndRegisterEquationSetEvaluators_Helmholtz(PHX::FieldManager<panzer::Traits>& fm,
+                                             const panzer::FieldLibrary& field_library,
+                                             const Teuchos::ParameterList& user_data) const;
+  // end HB mod
+
 private:
 
   std::string dof_name_;
