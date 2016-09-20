@@ -221,13 +221,13 @@ buildAndRegisterEquationSetEvaluators(PHX::FieldManager<panzer::Traits>& fm,
   std::cout << "The EquationSet_FreqDom::buildAndRegisterEquationSetEvaluators() function was called!\n" 
             << "The time domain equation specified is: " << freqdom_pl->get<std::string>("Time domain equation set")
             << ". We will attempt to build its fields now." << std::endl;
-  std::cout << "The EquationSet_FreqDom_impl function buildAndRegisterEquationSetEvaluators was called." << std::endl;
 
   using Teuchos::ParameterList;
   using Teuchos::RCP;
   using Teuchos::rcp;
 
-
+  // grabbing the harmonic balance options
+  int truncation_order  = params->sublist("FreqDom Options").get<int>("Truncation order");
   // TODO: build and register the evaluators from the time domain equation set here
   // for now, assuming the Helmholtz equation set
   user_app::EquationSet_FreqDom<EvalT>::buildAndRegisterEquationSetEvaluators_Helmholtz(fm, fl, user_data);
@@ -284,7 +284,18 @@ buildAndRegisterEquationSetEvaluators(PHX::FieldManager<panzer::Traits>& fm,
 
     // build a sum evaluator
     this->buildAndRegisterResidualSummationEvalautor(fm,dof_name_,residual_operator_names);
+
+    // register residual evaluators for each harmonic
+    // for now, as above, the total number of harmonics M is simply equal to the truncation order
+    int M = truncation_order;
+    for(int freq = 0 ; freq < M; freq++){
+      this->buildAndRegisterResidualSummationEvalautor(fm,dof_name_+ "_freq" + std::to_string(freq),residual_operator_names);
+      std::cout << "Adding the " + std::to_string(freq) << "st/nd/rd/th residual corresponding to harmonic DOF." << std::endl;
+    }
   }
+
+  fm.writeGraphvizFile<panzer::Traits::Residual>("graph_residual.dot");
+  fm.writeGraphvizFile<panzer::Traits::Jacobian>("graph_jacobian.dot");
 
 }
 

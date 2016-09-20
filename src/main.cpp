@@ -261,6 +261,7 @@ int main(int argc, char *argv[])
     Teuchos::RCP<panzer::WorksetContainer> wkstContainer             // attach it to a workset container (uses lazy evaluation)
        = Teuchos::rcp(new panzer::WorksetContainer(wkstFactory,physicsBlocks,workset_size));
     wkstContainer->setGlobalIndexer(dofManager);
+    std::cout << "In main(), built the workset container." << std::endl;
 
     // build linear solver 
     /////////////////////////////////////////////////////////////
@@ -269,7 +270,8 @@ int main(int argc, char *argv[])
         = panzer_stk::buildLOWSFactory(false, dofManager, conn_manager, 
                                                Teuchos::as<int>(mesh->getDimension()), 
                                                comm, lin_solver_pl,Teuchos::null);
-  
+    std::cout << "In main(), built the linear solver." << std::endl;
+
     // build and setup model evaluatorlinear solver 
     /////////////////////////////////////////////////////////////
     
@@ -284,6 +286,7 @@ int main(int argc, char *argv[])
                    cm_factory,
                    closure_models_pl,
                    user_data_pl,false,"");
+    std::cout << "In main(), set up and built the model evaluator linear solver." << std::endl;
 
     // setup a response library to write to the mesh
     /////////////////////////////////////////////////////////////
@@ -291,7 +294,7 @@ int main(int argc, char *argv[])
     RCP<panzer::ResponseLibrary<panzer::Traits> > stkIOResponseLibrary
         = buildSTKIOResponseLibrary(physicsBlocks,linObjFactory,wkstContainer,dofManager,cm_factory,mesh,
                                     closure_models_pl,user_data_pl);
-
+    std::cout << "In main(), set up the response library to write to the mesh." << std::endl;
   
     // Allocate vectors and matrix for linear solve
     /////////////////////////////////////////////////////////////
@@ -300,6 +303,7 @@ int main(int argc, char *argv[])
 
     RCP<Thyra::VectorBase<double> > residual = Thyra::createMember(physics->get_f_space());
     RCP<Thyra::LinearOpWithSolveBase<double> > jacobian = physics->create_W();
+    std::cout << "In main(), allocated the vectors and matrix for the linear solve." << std::endl;
 
     // do the assembly, this is where the evaluators are called and the graph is execueted.
     /////////////////////////////////////////////////////////////
@@ -307,13 +311,17 @@ int main(int argc, char *argv[])
     {
       Thyra::ModelEvaluatorBase::InArgs<double> inArgs = physics->createInArgs();
       inArgs.set_x(solution_vec);
+      std::cout << "In main(), set the input arguments of the assembly." << std::endl;
 
       Thyra::ModelEvaluatorBase::OutArgs<double> outArgs = physics->createOutArgs();
       outArgs.set_f(residual);
       outArgs.set_W(jacobian);
+      std::cout << "In main(), set the output arguments of the assembly." << std::endl;
 
       // construct the residual and jacobian
       physics->evalModel(inArgs,outArgs);
+      std::cout << "In main(), constructed the residual and Jacobian." << std::endl;
+
     }
 
     // do a linear solve

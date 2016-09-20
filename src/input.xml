@@ -61,9 +61,8 @@
   </ParameterList>
 
   <ParameterList name="Linear Solver">
-    <Parameter name="Linear Solver Type" type="string" value="Amesos"/> <!-- use a direct solver (KLU) -->
+    <Parameter name="Linear Solver Type" type="string" value="Belos"/> <!-- Belos, Amesos, AztecOO -->
     <Parameter name="Preconditioner Type" type="string" value="None"/>
   </ParameterList>
-
 
 </ParameterList>
